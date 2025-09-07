@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login & Registration</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Using a placeholder background image from placehold.co */
+            background-image: url('https://img.freepik.com/premium-photo/military-mission-soldier-uniform-using-laptop-inside-abandoned-building-closeup_495423-92256.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Container Card -->
+    <div class="bg-white rounded-xl shadow-2xl p-8 max-w-lg w-full transform transition-all duration-300">
+
+        <!-- Form Heading and Tabs -->
+        <div class="flex justify-center mb-6">
+            <button id="loginTab" class="py-2 px-6 text-xl font-bold rounded-lg transition-colors duration-300 text-gray-800 border-b-2 border-transparent">Login</button>
+            <button id="registerTab" class="py-2 px-6 text-xl font-bold rounded-lg transition-colors duration-300 text-gray-400 border-b-2 border-transparent">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="loginSoldierId" class="block text-sm font-medium text-gray-700">Soldier ID</label>
+                <input type="text" id="loginSoldierId" name="soldierId" placeholder="Enter your Soldier ID" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <label for="loginPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-300">Login</button>
+            </div>
+            <div id="loginMsg" class="mt-2 text-sm"></div>
+        </form>
+
+        <!-- Registration Form (hidden by default) -->
+        <form id="registerForm" class="space-y-6 hidden">
+            <div>
+                <label for="regSoldierId" class="block text-sm font-medium text-gray-700">Soldier ID</label>
+                <input type="text" id="regSoldierId" name="soldierId" placeholder="Enter Soldier ID" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <label for="regName" class="block text-sm font-medium text-gray-700">Name</label>
+                <input type="text" id="regName" name="name" placeholder="Enter Name" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <label for="regRank" class="block text-sm font-medium text-gray-700">Rank</label>
+                <input type="text" id="regRank" name="rank" placeholder="Enter Rank" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <label for="regRegiment" class="block text-sm font-medium text-gray-700">Regiment</label>
+                <input type="text" id="regRegiment" name="regiment" placeholder="Enter Regiment" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <label for="regPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                <input type="password" id="regPassword" name="password" placeholder="Create a password" required class="mt-1 block w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors duration-200">
+            </div>
+            <div>
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-300">Register</button>
+            </div>
+            <div id="regMsg" class="mt-2 text-sm"></div>
+        </form>
+
+    </div>
+
+    <script>
+        // Tab logic
+        const loginTab = document.getElementById('loginTab');
+        const registerTab = document.getElementById('registerTab');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        function showLogin() {
+            loginTab.classList.remove('text-gray-400', 'border-transparent');
+            loginTab.classList.add('text-gray-800', 'border-blue-600');
+            registerTab.classList.remove('text-gray-800', 'border-blue-600');
+            registerTab.classList.add('text-gray-400', 'border-transparent');
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+        }
+        function showRegister() {
+            registerTab.classList.remove('text-gray-400', 'border-transparent');
+            registerTab.classList.add('text-gray-800', 'border-blue-600');
+            loginTab.classList.remove('text-gray-800', 'border-blue-600');
+            loginTab.classList.add('text-gray-400', 'border-transparent');
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+        }
+        loginTab.addEventListener('click', showLogin);
+        registerTab.addEventListener('click', showRegister);
+        showLogin();
+
+        // Registration logic
+        registerForm.onsubmit = function(e) {
+            e.preventDefault();
+            const soldierId = document.getElementById('regSoldierId').value.trim();
+            const name = document.getElementById('regName').value.trim();
+            const rank = document.getElementById('regRank').value.trim();
+            const regiment = document.getElementById('regRegiment').value.trim();
+            const password = document.getElementById('regPassword').value;
+            if (!soldierId || !name || !rank || !regiment || !password) {
+                document.getElementById('regMsg').textContent = 'All fields required.';
+                document.getElementById('regMsg').style.color = 'red';
+                return;
+            }
+            let soldiers = JSON.parse(localStorage.getItem('soldiers') || '{}');
+            if (soldiers[soldierId]) {
+                document.getElementById('regMsg').textContent = 'Soldier ID already exists.';
+                document.getElementById('regMsg').style.color = 'red';
+                return;
+            }
+            soldiers[soldierId] = { name, rank, regiment, password };
+            localStorage.setItem('soldiers', JSON.stringify(soldiers));
+            document.getElementById('regMsg').textContent = 'Registration successful!';
+            document.getElementById('regMsg').style.color = 'green';
+            registerForm.reset();
+        };
+
+        // Login logic
+        loginForm.onsubmit = function(e) {
+            e.preventDefault();
+            const soldierId = document.getElementById('loginSoldierId').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            let soldiers = JSON.parse(localStorage.getItem('soldiers') || '{}');
+            if (soldiers[soldierId] && soldiers[soldierId].password === password) {
+                document.getElementById('loginMsg').textContent = 'Login successful! Redirecting...';
+                document.getElementById('loginMsg').style.color = 'green';
+                sessionStorage.setItem('loggedSoldierId', soldierId);
+                setTimeout(function() {
+                    window.location.href = 'HOmeGriffin.html';
+                }, 1000);
+            } else {
+                    window.location.href = 'Threat.html';
+            }
+        };
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRIFFIN - Command & Control Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+    // Show logged-in officer info if available
+    document.addEventListener('DOMContentLoaded', function() {
+        let officerId = sessionStorage.getItem('loggedOfficerId');
+        if (officerId) {
+            let officers = JSON.parse(localStorage.getItem('officers') || '{}');
+            let officer = officers[officerId];
+            if (officer) {
+                document.getElementById('officer-info').textContent = `Officer: ${officer.name} (ID: ${officerId})`;
+            }
+        }
+        // Ctrl+K redirect to Threat page
+        document.addEventListener('keydown', function(e) {
+            // Threat page removed: Ctrl+K no longer redirects
+        });
+    });
+    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100%;
+            min-height: 500px;
+            z-index: 1;
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .alert-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        .event-timeline li:before {
+            content: "";
+            position: absolute;
+            left: -20px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #3b82f6;
+        }
+        .event-timeline li:after {
+            content: "";
+            position: absolute;
+            left: -15px;
+            top: 12px;
+            width: 2px;
+            height: calc(100% - 12px);
+            background: #d1d5db;
+        }
+        .event-timeline li:last-child:after {
+            display: none;
+        }
+        .unit-status-on-mission {
+            background-color: #f59e0b;
+        }
+        .unit-status-engaged {
+            background-color: #ef4444;
+        }
+        .unit-status-standby {
+            background-color: #10b981;
+        }
+        .unit-status-extracted {
+            background-color: #64748b;
+        }
+        .temperature-legend {
+            background: linear-gradient(90deg, #3b82f6, #10b981, #f59e0b, #ef4444);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+    <script>
+    // Redirect to login if not authenticated
+    if (!sessionStorage.getItem('loggedSoldierId')) {
+        window.location.href = 'SoldierAuth.html';
+    }
+    </script>
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="sidebar bg-gray-800 text-white w-64 flex-shrink-0 flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold">GRIFFIN</h1>
+                <p class="text-sm text-gray-400">Command & Control Dashboard</p>
+            </div>
+            <div class="flex-1 overflow-y-auto">
+                <nav class="p-2">
+                    <div class="mb-4">
+                        <div class="flex items-center p-2 bg-gray-700 rounded">
+                            <i class="fas fa-user-shield mr-3"></i>
+                            <span id="officer-info"></span>
+    <script>
+    // Show logged-in soldier info if available
+    document.addEventListener('DOMContentLoaded', function() {
+        let soldierId = sessionStorage.getItem('loggedSoldierId');
+        if (soldierId) {
+            let soldiers = JSON.parse(localStorage.getItem('soldiers') || '{}');
+            let soldier = soldiers[soldierId];
+            if (soldier) {
+                document.getElementById('officer-info').innerHTML = `<b>${soldier.rank}. ${soldier.name}</b>`;
+            }
+        }
+    });
+    </script>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <a href="#" class="flex items-center p-2 rounded hover:bg-gray-700 bg-gray-700">
+                            <i class="fas fa-tachometer-alt mr-3"></i>
+                            <span>Dashboard</span>
+                        </a>
+                        <a href="#map-section" class="flex items-center p-2 rounded hover:bg-gray-700">
+                            <i class="fas fa-map-marked-alt mr-3"></i>
+                            <span>Interactive Map</span>
+                        </a>
+                        <a href="#environment-section" class="flex items-center p-2 rounded hover:bg-gray-700">
+                            <i class="fas fa-cloud-sun-rain mr-3"></i>
+                            <span>Environment Data</span>
+                        </a>
+                        <a href="#comms-section" class="flex items-center p-2 rounded hover:bg-gray-700">
+                            <i class="fas fa-broadcast-tower mr-3"></i>
+                            <span>Communications</span>
+                        </a>
+                        <a href="#analytics-section" class="flex items-center p-2 rounded hover:bg-gray-700">
+                            <i class="fas fa-chart-bar mr-3"></i>
+                            <span>Data & Analytics</span>
+                        </a>
+                        <a href="#units-section" class="flex items-center p-2 rounded hover:bg-gray-700">
+                            <i class="fas fa-users mr-3"></i>
+                            <span>Unit Status</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-700">
+                <div class="text-center text-sm text-gray-400">
+                    <p>Secure Connection <i class="fas fa-lock text-green-500"></i></p>
+                    <p class="mt-1">Last Sync: <span id="last-sync">Just now</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 overflow-auto">
+            <!-- Top Bar -->
+            <header class="bg-white shadow-sm p-4 flex justify-between items-center">
+                <div>
+                    <h2 class="text-lg font-semibold">OPERATION DASHBOARD</h2>
+                    <p class="text-sm text-gray-600">Phase 2: Sector Clearance</p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="bg-gray-100 p-2 rounded-lg">
+                        <div class="text-center">
+                            <div class="text-2xl font-mono" id="real-time-clock">--:--:--</div>
+                            <div class="text-xs text-gray-600">LOCAL TIME</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-100 p-2 rounded-lg">
+                        <div class="text-center">
+                            <div class="text-2xl font-mono" id="mission-timer">00:00:00</div>
+                            <div class="text-xs text-gray-600">MISSION TIME</div>
+                        </div>
+                    </div>
+                    <button class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        <span>ALERT</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard KPIs -->
+            <section class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- KPI 1 -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500">Forces Deployed</p>
+                                <h3 class="text-2xl font-bold">142</h3>
+                                <p class="text-sm text-gray-600">6 units active</p>
+                            </div>
+                            <div class="bg-blue-100 p-2 rounded-full">
+                                <i class="fas fa-users text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>Infantry</span>
+                                <span>86</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: 60%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI 2 -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500">Area Covered</p>
+                                <h3 class="text-2xl font-bold">37%</h3>
+                                <p class="text-sm text-gray-600">2.7 km² cleared</p>
+                            </div>
+                            <div class="bg-green-100 p-2 rounded-full">
+                                <i class="fas fa-map-marked-alt text-green-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>Target: 7.3 km²</span>
+                                <span>2.7/7.3 km²</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div class="bg-green-600 h-2 rounded-full" style="width: 37%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI 3 -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500">Threats Neutralized</p>
+                                <h3 class="text-2xl font-bold">8</h3>
+                                <p class="text-sm text-gray-600">Last: 12:47</p>
+                            </div>
+                            <div class="bg-red-100 p-2 rounded-full">
+                                <i class="fas fa-skull-crossbones text-red-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>Hostiles</span>
+                                <span>5</span>
+                            </div>
+                            <div class="flex justify-between text-sm text-gray-600 mt-1">
+                                <span>Caches</span>
+                                <span>3</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPI 4 -->
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-500">Time on Target</p>
+                                <h3 class="text-2xl font-bold">04:22</h3>
+                                <p class="text-sm text-gray-600">Started 08:00</p>
+                            </div>
+                            <div class="bg-yellow-100 p-2 rounded-full">
+                                <i class="fas fa-clock text-yellow-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span>Phase Duration</span>
+                                <span>2:18</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 52%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Interactive Map Section -->
+            <section id="map-section" class="p-4">
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <h3 class="font-semibold text-lg">Interactive Operation Map</h3>
+                        <div class="flex space-x-2">
+                            <button class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm flex items-center">
+                                <i class="fas fa-layer-group mr-1"></i>
+                                <span>Layers</span>
+                            </button>
+                            <button class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm flex items-center">
+                                <i class="fas fa-ruler-combined mr-1"></i>
+                                <span>Measure</span>
+                            </button>
+                            <button class="bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded text-sm flex items-center text-blue-700">
+                                <i class="fas fa-sync-alt mr-1"></i>
+                                <span>Refresh</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex mb-4 space-x-2 overflow-x-auto pb-2">
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center px-3 py-1 bg-blue-100 rounded-full text-blue-800">
+                                    <div class="w-3 h-3 bg-blue-600 rounded-full mr-2"></div>
+                                    <span class="text-sm">Friendly Units</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center px-3 py-1 bg-red-100 rounded-full text-red-800">
+                                    <div class="w-3 h-3 bg-red-600 rounded-full mr-2"></div>
+                                    <span class="text-sm">Hostile Contacts</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center px-3 py-1 bg-green-100 rounded-full text-green-800">
+                                    <div class="w-3 h-3 bg-green-600 rounded-full mr-2"></div>
+                                    <span class="text-sm">Cleared Areas</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center px-3 py-1 bg-yellow-100 rounded-full text-yellow-800">
+                                    <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+                                    <span class="text-sm">In Progress</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center px-3 py-1 bg-gray-100 rounded-full text-gray-800">
+                                    <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
+                                    <span class="text-sm">Uncleared</span>
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="flex items-center px-3 py-1 bg-purple-100 rounded-full text-purple-800">
+                                    <div class="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+                                    <span class="text-sm">Points of Interest</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="map" class="rounded-lg border border-gray-300"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Environment and Unit Status Sections -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4">
+                <!-- Environment Data -->
+                <div id="environment-section" class="lg:col-span-1">
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="p-4 border-b">
+                            <h3 class="font-semibold text-lg">Environmental Data</h3>
+                        </div>
+                        <div class="p-4">
+                            <div class="mb-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="font-medium">Temperature Map</h4>
+                                    <span class="text-sm bg-gray-100 px-2 py-1 rounded">Live</span>
+                                </div>
+                                <div class="h-40 bg-gray-200 rounded-lg flex items-center justify-center">
+                                    <div class="text-center">
+                                        <p class="text-gray-600">Temperature overlay on map</p>
+                                        <div class="temperature-legend h-4 w-full rounded-full mt-2"></div>
+                                        <div class="flex justify-between text-xs mt-1">
+                                            <span>10°C</span>
+                                            <span>20°C</span>
+                                            <span>30°C</span>
+                                            <span>40°C</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="font-medium">Current Weather</h4>
+                                    <span class="text-sm">Sector 4-A</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div class="bg-gray-100 p-3 rounded-lg text-center">
+                                        <i class="fas fa-temperature-high text-red-500 text-xl mb-1"></i>
+                                        <p class="font-bold">28°C</p>
+                                        <p class="text-xs text-gray-600">Temperature</p>
+                                    </div>
+                                    <div class="bg-gray-100 p-3 rounded-lg text-center">
+                                        <i class="fas fa-wind text-blue-500 text-xl mb-1"></i>
+                                        <p class="font-bold">12 km/h</p>
+                                        <p class="text-xs text-gray-600">Wind</p>
+                                    </div>
+                                    <div class="bg-gray-100 p-3 rounded-lg text-center">
+                                        <i class="fas fa-tint text-blue-300 text-xl mb-1"></i>
+                                        <p class="font-bold">42%</p>
+                                        <p class="text-xs text-gray-600">Humidity</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="font-medium mb-2">Weather Forecast</h4>
+                                <div class="bg-gray-100 rounded-lg p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center">
+                                            <i class="fas fa-sun text-yellow-500 mr-2"></i>
+                                            <span>Next 6 hours</span>
+                                        </div>
+                                        <span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">Stable</span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span>13:00 - 15:00</span>
+                                            <span>28°C, Sunny</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span>15:00 - 17:00</span>
+                                            <span>26°C, Partly Cloudy</span>
+                                        </div>
+                                        <div class="flex justify-between text-sm">
+                                            <span>17:00 - 19:00</span>
+                                            <span>24°C, Clear</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unit Status -->
+                <div id="units-section" class="lg:col-span-1">
+                    <div class="bg-white rounded-lg shadow overflow-hidden h-full">
+                        <div class="p-4 border-b">
+                            <h3 class="font-semibold text-lg">Unit Status</h3>
+                        </div>
+                        <div class="p-4 overflow-y-auto" style="max-height: 600px;">
+                            <div class="mb-4">
+                                <div class="flex justify-between mb-2">
+                                    <h4 class="font-medium">Active Units</h4>
+                                    <span class="text-sm bg-green-100 text-green-800 px-2 py-1 rounded">6/6 Operational</span>
+                                </div>
+                                <div class="space-y-3">
+                                    <!-- Unit 1 -->
+                                    <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h5 class="font-medium">Alpha Team</h5>
+                                                <p class="text-sm text-gray-600">Infantry Squad (8)</p>
+                                            </div>
+                                            <span class="unit-status-on-mission text-white text-xs px-2 py-1 rounded-full">On Mission</span>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-sm">
+                                            <span><i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Sector 4-B</span>
+                                            <span><i class="fas fa-clock text-gray-500 mr-1"></i> 2h 17m</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="flex justify-between text-xs text-gray-600">
+                                                <span>Comm: Strong</span>
+                                                <span>Supply: 78%</span>
+                                                <span>Health: Green</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Unit 2 -->
+                                    <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h5 class="font-medium">Bravo Team</h5>
+                                                <p class="text-sm text-gray-600">Infantry Squad (7)</p>
+                                            </div>
+                                            <span class="unit-status-engaged text-white text-xs px-2 py-1 rounded-full">Engaged</span>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-sm">
+                                            <span><i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Sector 3-C</span>
+                                            <span><i class="fas fa-clock text-gray-500 mr-1"></i> 1h 42m</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="flex justify-between text-xs text-gray-600">
+                                                <span>Comm: Weak</span>
+                                                <span>Supply: 65%</span>
+                                                <span>Health: Yellow</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Unit 3 -->
+                                    <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h5 class="font-medium">Charlie Team</h5>
+                                                <p class="text-sm text-gray-600">Infantry Squad (9)</p>
+                                            </div>
+                                            <span class="unit-status-standby text-white text-xs px-2 py-1 rounded-full">Standby</span>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-sm">
+                                            <span><i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Sector 2-A</span>
+                                            <span><i class="fas fa-clock text-gray-500 mr-1"></i> 0h 53m</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="flex justify-between text-xs text-gray-600">
+                                                <span>Comm: Strong</span>
+                                                <span>Supply: 92%</span>
+                                                <span>Health: Green</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Unit 4 -->
+                                    <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h5 class="font-medium">Delta Team</h5>
+                                                <p class="text-sm text-gray-600">Infantry Squad (6)</p>
+                                            </div>
+                                            <span class="unit-status-on-mission text-white text-xs px-2 py-1 rounded-full">On Mission</span>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-sm">
+                                            <span><i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Sector 5-D</span>
+                                            <span><i class="fas fa-clock text-gray-500 mr-1"></i> 3h 08m</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="flex justify-between text-xs text-gray-600">
+                                                <span>Comm: Moderate</span>
+                                                <span>Supply: 71%</span>
+                                                <span>Health: Green</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Unit 5 -->
+                                    <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h5 class="font-medium">Eagle Eye 1</h5>
+                                                <p class="text-sm text-gray-600">Recon Drone</p>
+                                            </div>
+                                            <span class="unit-status-on-mission text-white text-xs px-2 py-1 rounded-full">On Mission</span>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-sm">
+                                            <span><i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Sector 4-C</span>
+                                            <span><i class="fas fa-clock text-gray-500 mr-1"></i> 1h 22m</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="flex justify-between text-xs text-gray-600">
+                                                <span>Comm: Strong</span>
+                                                <span>Battery: 48%</span>
+                                                <span>Coverage: 5km</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Unit 6 -->
+                                    <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer">
+                                        <div class="flex justify-between items-start">
+                                            <div>
+                                                <h5 class="font-medium">Rapid 1</h5>
+                                                <p class="text-sm text-gray-600">APC Vehicle</p>
+                                            </div>
+                                            <span class="unit-status-standby text-white text-xs px-2 py-1 rounded-full">Standby</span>
+                                        </div>
+                                        <div class="flex justify-between mt-2 text-sm">
+                                            <span><i class="fas fa-map-marker-alt text-blue-500 mr-1"></i> Base Camp</span>
+                                            <span><i class="fas fa-clock text-gray-500 mr-1"></i> 0h 15m</span>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="flex justify-between text-xs text-gray-600">
+                                                <span>Comm: Strong</span>
+                                                <span>Fuel: 87%</span>
+                                                <span>Status: Ready</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Communications -->
+                <div id="comms-section" class="lg:col-span-1">
+                    <div class="bg-white rounded-lg shadow overflow-hidden h-full">
+                        <div class="p-4 border-b">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-semibold text-lg">Communications</h3>
+                                <div class="flex items-center space-x-2">
+                                    <button class="bg-gray-100 hover:bg-gray-200 p-1 rounded">
+                                        <i class="fas fa-filter text-gray-600"></i>
+                                    </button>
+                                    <button class="bg-blue-100 hover:bg-blue-200 p-1 rounded text-blue-700">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4">
+                            <!-- Alert Notification -->
+                            <div class="mb-4 alert-pulse bg-red-50 border-l-4 border-red-500 p-3 rounded-r">
+                                <div class="flex justify-between">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0 pt-0.5">
+                                            <i class="fas fa-exclamation-circle text-red-500"></i>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-red-800">
+                                                Bravo Team reports hostile contact in Sector 3-C
+                                            </p>
+                                            <p class="mt-1 text-sm text-red-700">
+                                                Estimated 3-5 hostiles, requesting support
+                                            </p>
+                                            <p class="mt-1 text-xs text-red-600">
+                                                2 minutes ago
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button class="text-red-500 hover:text-red-700">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Activity Feed -->
+                            <div class="mb-4">
+                                <h4 class="font-medium mb-2">Activity Feed</h4>
+                                <div class="border rounded-lg overflow-hidden">
+                                    <div class="overflow-y-auto" style="max-height: 300px;">
+                                        <ul class="divide-y divide-gray-200 event-timeline relative pl-6">
+                                            <li class="py-3">
+                                                <div class="flex items-center">
+                                                    <span class="text-xs text-gray-500 w-12">12:47</span>
+                                                    <div class="ml-2">
+                                                        <p class="text-sm">Alpha Team cleared building in Sector 4-B</p>
+                                                        <p class="text-xs text-gray-500">No hostiles found</p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="py-3">
+                                                <div class="flex items-center">
+                                                    <span class="text-xs text-gray-500 w-12">12:32</span>
+                                                    <div class="ml-2">
+                                                        <p class="text-sm">Bravo Team engaged hostiles in Sector 3-C</p>
+                                                        <p class="text-xs text-gray-500">3 hostiles neutralized</p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="py-3">
+                                                <div class="flex items-center">
+                                                    <span class="text-xs text-gray-500 w-12">12:15</span>
+                                                    <div class="ml-2">
+                                                        <p class="text-sm">Eagle Eye 1 detected movement in Sector 4-C</p>
+                                                        <p class="text-xs text-gray-500">Possible hostile activity</p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="py-3">
+                                                <div class="flex items-center">
+                                                    <span class="text-xs text-gray-500 w-12">11:58</span>
+                                                    <div class="ml-2">
+                                                        <p class="text-sm">Delta Team found weapons cache in Sector 5-D</p>
+                                                        <p class="text-xs text-gray-500">3 AK-47s, 2 RPGs secured</p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="py-3">
+                                                <div class="flex items-center">
+                                                    <span class="text-xs text-gray-500 w-12">11:42</span>
+                                                    <div class="ml-2">
+                                                        <p class="text-sm">Charlie Team moved to standby position</p>
+                                                        <p class="text-xs text-gray-500">Sector 2-A</p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                            <li class="py-3">
+                                                <div class="flex items-center">
+                                                    <span class="text-xs text-gray-500 w-12">11:30</span>
+                                                    <div class="ml-2">
+                                                        <p class="text-sm">Command update: Phase 2 initiated</p>
+                                                        <p class="text-xs text-gray-500">All units proceed to sectors</p>
+                                                    </div>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Secure Messaging -->
+                            <div>
+                                <h4 class="font-medium mb-2">Secure Messaging</h4>
+                                <div class="border rounded-lg overflow-hidden">
+                                    <div class="p-3 bg-gray-50 border-b">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <i class="fas fa-user-shield text-blue-500"></i>
+                                            </div>
+                                            <div class="ml-3">
+                                                <p class="text-sm font-medium">Command Channel</p>
+                                                <p class="text-xs text-gray-500">Encrypted</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-white" style="max-height: 150px; overflow-y: auto;">
+                                        <div class="space-y-2">
+                                            <div class="flex justify-end">
+                                                <div class="bg-blue-100 rounded-lg p-2 max-w-xs">
+                                                    <p class="text-sm">Bravo Team, status update?</p>
+                                                    <p class="text-xs text-gray-600 text-right">12:45</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex">
+                                                <div class="bg-gray-100 rounded-lg p-2 max-w-xs">
+                                                    <p class="text-sm">Team responding to question.</p>
+                                                    <p class="text-xs text-gray-600">12:46</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex justify-end">
+                                                <div class="bg-blue-100 rounded-lg p-2 max-w-xs">
+                                                    <p class="text-sm">Acknowledged. Rapid 1 en route ETA 8 minutes. Hold position.</p>
+                                                    <p class="text-xs text-gray-600 text-right">12:47</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-gray-50 border-t">
+                                        <div class="flex">
+                                            <input type="text" placeholder="Type secure message..." class="flex-1 border rounded-l-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                            <button id="send-secure-msg" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-lg">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+    <script>
+    // Chatbot integration for Secure Messaging
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.querySelector('input[placeholder="Type secure message..."]');
+        const button = document.getElementById('send-secure-msg');
+        const chatContainer = document.querySelector('.space-y-2');
+        button.addEventListener('click', async function() {
+            const userMsg = input.value.trim();
+            if (!userMsg) return;
+            // Add user message to chat
+            const userDiv = document.createElement('div');
+            userDiv.className = 'flex justify-end';
+            userDiv.innerHTML = `<div class='bg-blue-100 rounded-lg p-2 max-w-xs'><p class='text-sm'>${userMsg}</p><p class='text-xs text-gray-600 text-right'>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p></div>`;
+            chatContainer.appendChild(userDiv);
+            input.value = '';
+            // Send to backend
+            try {
+                const res = await fetch('http://localhost:5000/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: userMsg})
+                });
+                const data = await res.json();
+                // Add bot response to chat
+                const botDiv = document.createElement('div');
+                botDiv.className = 'flex';
+                botDiv.innerHTML = `<div class='bg-gray-100 rounded-lg p-2 max-w-xs'><p class='text-sm'>${data.response}</p><p class='text-xs text-gray-600'>${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p></div>`;
+                chatContainer.appendChild(botDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } catch (err) {
+                alert('Could not connect to chatbot backend. Is chatbot_server.py running?');
+            }
+        });
+    });
+    </script>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data & Analytics Section -->
+            <section id="analytics-section" class="p-4">
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="p-4 border-b">
+                        <h3 class="font-semibold text-lg">Data & Analytics</h3>
+                    </div>
+                    <div class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <!-- Historical Timeline -->
+                        <div class="lg:col-span-1">
+                            <div class="border rounded-lg p-4 h-full">
+                                <h4 class="font-medium mb-3">Operation Timeline</h4>
+                                <div class="relative pl-6">
+                                    <div class="absolute left-0 top-0 h-full w-0.5 bg-gray-200"></div>
+                                    <div class="space-y-4">
+                                        <div class="relative">
+                                            <div class="absolute left-0 top-1.5 -ml-2.5 w-3 h-3 rounded-full bg-blue-500"></div>
+                                            <div class="pl-4">
+                                                <p class="text-sm font-medium">Phase 2 Initiated</p>
+                                                <p class="text-xs text-gray-600">Today, 11:30</p>
+                                                <p class="text-xs mt-1">Sector clearance operations began</p>
+                                            </div>
+                                        </div>
+                                        <div class="relative">
+                                            <div class="absolute left-0 top-1.5 -ml-2.5 w-3 h-3 rounded-full bg-blue-500"></div>
+                                            <div class="pl-4">
+                                                <p class="text-sm font-medium">Phase 1 Completed</p>
+                                                <p class="text-xs text-gray-600">Yesterday, 18:45</p>
+                                                <p class="text-xs mt-1">Perimeter secured, 2 caches found</p>
+                                            </div>
+                                        </div>
+                                        <div class="relative">
+                                            <div class="absolute left-0 top-1.5 -ml-2.5 w-3 h-3 rounded-full bg-blue-500"></div>
+                                            <div class="pl-4">
+                                                <p class="text-sm font-medium">Operation Launched</p>
+                                                <p class="text-xs text-gray-600">Yesterday, 06:00</p>
+                                                <p class="text-xs mt-1">All units deployed to target area</p>
+                                            </div>
+                                        </div>
+                                        <div class="relative">
+                                            <div class="absolute left-0 top-1.5 -ml-2.5 w-3 h-3 rounded-full bg-blue-500"></div>
+                                            <div class="pl-4">
+                                                <p class="text-sm font-medium">Briefing Completed</p>
+                                                <p class="text-xs text-gray-600">2 days ago, 21:30</p>
+                                                <p class="text-xs mt-1">All teams briefed on mission objectives</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Threat Analysis -->
+                        <div class="lg:col-span-1">
+                            <div class="border rounded-lg p-4 h-full">
+                                <h4 class="font-medium mb-3">Threat Analysis</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Hostile Contacts</span>
+                                            <span>5</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-red-600 h-2 rounded-full" style="width: 62%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Weapons Caches</span>
+                                            <span>3</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 38%"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>IEDs Found</span>
+                                            <span>2</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-orange-500 h-2 rounded-full" style="width: 25%"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <h5 class="text-sm font-medium mb-2">Threat Locations</h5>
+                                        <div class="grid grid-cols-2 gap-2 text-xs">
+                                            <div class="bg-gray-100 p-2 rounded">
+                                                <p>Sector 3-C</p>
+                                                <p class="text-red-600">3 contacts</p>
+                                            </div>
+                                            <div class="bg-gray-100 p-2 rounded">
+                                                <p>Sector 5-D</p>
+                                                <p class="text-yellow-600">1 cache</p>
+                                            </div>
+                                            <div class="bg-gray-100 p-2 rounded">
+                                                <p>Sector 4-B</p>
+                                                <p class="text-red-600">2 contacts</p>
+                                            </div>
+                                            <div class="bg-gray-100 p-2 rounded">
+                                                <p>Sector 2-A</p>
+                                                <p class="text-orange-600">1 IED</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resource Management -->
+                        <div class="lg:col-span-1">
+                            <div class="border rounded-lg p-4 h-full">
+                                <h4 class="font-medium mb-3">Resource Status</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Drone Battery Levels</span>
+                                            <span>48% avg</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-blue-600 h-2 rounded-full" style="width: 48%"></div>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-gray-600 mt-1">
+                                            <span>Eagle Eye 1: 48%</span>
+                                            <span>Eagle Eye 2: 72%</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Vehicle Fuel Status</span>
+                                            <span>87% avg</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-green-600 h-2 rounded-full" style="width: 87%"></div>
+                                        </div>
+                                        <div class="flex justify-between text-xs text-gray-600 mt-1">
+                                            <span>Rapid 1: 87%</span>
+                                            <span>Rapid 2: 95%</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-sm mb-1">
+                                            <span>Unit Supplies</span>
+                                            <span>71% avg</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2">
+                                            <div class="bg-purple-600 h-2 rounded-full" style="width: 71%"></div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 text-xs mt-1">
+                                            <div>
+                                                <p>Alpha: 78%</p>
+                                                <p>Bravo: 65%</p>
+                                            </div>
+                                            <div>
+                                                <p>Charlie: 92%</p>
+                                                <p>Delta: 71%</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <h5 class="text-sm font-medium mb-2">Medical Status</h5>
+                                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                                            <div class="bg-green-100 p-2 rounded">
+                                                <p class="font-medium">Green</p>
+                                                <p>3 units</p>
+                                            </div>
+                                            <div class="bg-yellow-100 p-2 rounded">
+                                                <p class="font-medium">Yellow</p>
+                                                <p>1 unit</p>
+                                            </div>
+                                            <div class="bg-red-100 p-2 rounded">
+                                                <p class="font-medium">Red</p>
+                                                <p>0 units</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Initialize map
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up real-time clock
+            function updateClock() {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString();
+                document.getElementById('real-time-clock').textContent = timeStr;
+                
+                // Update last sync time
+                const options = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+                document.getElementById('last-sync').textContent = 'Today at ' + now.toLocaleTimeString([], options);
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+            
+            // Mission timer (example: starts from 4 hours 22 minutes)
+            let missionSeconds = (4 * 3600) + (22 * 60);
+            function updateMissionTimer() {
+                missionSeconds++;
+                const hours = Math.floor(missionSeconds / 3600);
+                const minutes = Math.floor((missionSeconds % 3600) / 60);
+                const seconds = missionSeconds % 60;
+                
+                const timeStr = [
+                    hours.toString().padStart(2, '0'),
+                    minutes.toString().padStart(2, '0'),
+                    seconds.toString().padStart(2, '0')
+                ].join(':');
+                
+                document.getElementById('mission-timer').textContent = timeStr;
+            }
+            setInterval(updateMissionTimer, 1000);
+            
+            // Initialize map (simplified for demo)
+            const map = L.map('map').setView([34.240362, 74.798992], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Add some example markers
+            const friendlyIcon = L.icon({
+                iconUrl: 'https://cdn0.iconfinder.com/data/icons/small-n-flat/24/678111-map-marker-512.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            });
+            
+            const hostileIcon = L.icon({
+                iconUrl: 'https://cdn0.iconfinder.com/data/icons/small-n-flat/24/678111-map-marker-512.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                className: 'hostile-marker'
+            });
+            
+            // Friendly units
+            L.marker([34.240362, 74.798992], {icon: friendlyIcon})
+                .addTo(map)
+                .bindPopup("<b>Alpha Team</b><br>Status: On Mission<br>Location: Sector 4-B");
+            
+            L.marker([34.0485, -118.2408], {icon: friendlyIcon})
+                .addTo(map)
+                .bindPopup("<b>Bravo Team</b><br>Status: Engaged<br>Location: Sector 3-C");
+            
+            // Hostile contacts
+            L.marker([34.0485, -118.2415], {icon: hostileIcon})
+                .addTo(map)
+                .bindPopup("<b>Hostile Contact</b><br>Estimated: 3-5 hostiles<br>Last seen: 12:47");
+            
+            // Add some example polygons for cleared areas
+            const clearedArea = L.polygon([
+                [34.055, -118.25],
+                [34.055, -118.24],
+                [34.05, -118.24],
+                [34.05, -118.25]
+            ], {color: 'green', fillOpacity: 0.3}).addTo(map)
+            .bindPopup("<b>Cleared Area</b><br>Sector 4-B<br>Cleared at 12:47");
+            
+            const inProgressArea = L.polygon([
+                [34.048, -118.243],
+                [34.048, -118.238],
+                [34.043, -118.238],
+                [34.043, -118.243]
+            ], {color: 'yellow', fillOpacity: 0.3}).addTo(map)
+            .bindPopup("<b>In Progress</b><br>Sector 3-C<br>Engagement ongoing");
+            
+            // Add a point of interest
+            L.marker([34.046, -118.245], {
+                icon: L.divIcon({
+                    html: '<i class="fas fa-flag text-purple-600 text-2xl"></i>',
+                    iconSize: [24, 24],
+                    className: ''
+                })
+            }).addTo(map)
+            .bindPopup("<b>Point of Interest</b><br>Suspected cache location<br>Marked by Eagle Eye 1");
+            
+            // Simulate real-time updates
+            setInterval(() => {
+                // Randomly update some KPIs for demo purposes
+                const areaCovered = document.querySelector('.bg-green-600');
+                const currentWidth = parseFloat(areaCovered.style.width);
+                if (currentWidth < 100) {
+                    areaCovered.style.width = (currentWidth + 0.2) + '%';
+                    document.querySelector('h3:contains("Area Covered")').nextElementSibling.textContent = 
+                        (Math.round((currentWidth + 0.2) * 7.3 / 100 * 10) / 10) + '/7.3 km²';
+                }
+                
+                // Randomly add new events to the activity feed
+                if (Math.random() > 0.7) {
+                    const events = [
+                        {time: "12:52", event: "Delta Team moving to new position in Sector 5-D", detail: "Advancing to next building"},
+                        {time: "12:50", event: "Eagle Eye 1 battery at 45%", detail: "Returning to base soon"},
+                        {time: "12:48", event: "Command approved support request", detail: "Rapid 1 en route to Sector 3-C"}
+                    ];
+                    
+                    const randomEvent = events[Math.floor(Math.random() * events.length)];
+                    const timeline = document.querySelector('.event-timeline');
+                    
+                    const newEvent = document.createElement('li');
+                    newEvent.className = 'py-3';
+                    newEvent.innerHTML = `
+                        <div class="flex items-center">
+                            <span class="text-xs text-gray-500 w-12">${randomEvent.time}</span>
+                            <div class="ml-2">
+                                <p class="text-sm">${randomEvent.event}</p>
+                                <p class="text-xs text-gray-500">${randomEvent.detail}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    timeline.insertBefore(newEvent, timeline.firstChild);
+                }
+            }, 5000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Threat Detected</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .crash-text {
+            color: #ff1a1a;
+            font-weight: bold;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+        }
+        .timer {
+            font-size: 1.5rem;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="crash-text" id="crash-text" style="display:none;">CRASHED</div>
+    <div class="timer" id="timer">Countdown: <span id="seconds">10</span></div>
+    <script>
+        let seconds = 10;
+        const secondsSpan = document.getElementById('seconds');
+        const crashText = document.getElementById('crash-text');
+        const timerDiv = document.getElementById('timer');
+        const interval = setInterval(function() {
+            seconds--;
+            secondsSpan.textContent = seconds;
+            if (seconds === 0) {
+                clearInterval(interval);
+                timerDiv.style.display = 'none';
+                crashText.style.display = 'block';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
